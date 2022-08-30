@@ -1,0 +1,447 @@
+1.Write a C program that takes one or more file/directory names as command line input
+and reports the following information on the file:
+o File type
+o Number of links
+o Time of last access
+o Read, write, and execute permission
+
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+char *error_msg[] = { "\nUsage: ./12filestat<file|dir>[<file|dir>]\n\n", "\nFile does not exist !!\n\n", "\nError doing 'stat' on file\n\n" };
+void print_error(int msg_num, int exit_code, int exit_flag);
+int main(int argc, char *argv[])
+{
+	int i;
+	mode_t file_perm;
+	struct stat file_details;
+	char success_msg[] = "\nCommand executed successfully\n\n";
+	if (argc < 2)
+		print_error(0, 2, 1);
+	for (i = 1; i < argc; i++)
+	{
+		printf("\n%s\n%s\n%s\n", "----------------", argv[i], "----------------");
+		if (access(argv[i], F_OK) == -1)
+		{
+			print_error(1, 3, 0);
+			continue;
+		}
+
+		if (lstat(argv[i], &file_details) < 0)
+		{
+			print_error(2, 4, 0);
+			continue;
+		}
+
+		if (S_ISREG(file_details.st_mode))
+			printf("File type : Regular\n");
+		else if (S_ISDIR(file_details.st_mode))
+			printf("File type : Directory\n");
+		else if (S_ISLNK(file_details.st_mode))
+			printf("File type : Symbolic link\n");
+		else
+			printf("File type : Other");
+		printf("Number of links : %d\n", (int) file_details.st_nlink);
+		printf("Time of last access : %s", ctime(&file_details.st_atime));
+		printf("File Permissions:\n");
+		file_perm = file_details.st_mode &~S_IFMT;
+		printf("\tUser : ");
+		if (file_perm & S_IRUSR) printf("Readable, ");
+		else printf("Not readable, ");
+		if (file_perm & S_IWUSR) printf("Writable, ");
+		else printf("Not writable, ");
+		if (file_perm & S_IXUSR) printf("Executable\n");
+		else printf("Not executable\n");
+		printf("\tGroup : ");
+		if (file_perm & S_IRGRP) printf("Readable, ");
+		else printf("Not readable, ");
+		if (file_perm & S_IWGRP) printf("Writable, ");
+		else printf("Not writable, ");
+		if (file_perm & S_IXGRP) printf("Executable\n");
+		else printf("Not executable\n");
+		printf("\tOthers : ");
+		if (file_perm & S_IROTH) printf("Readable, ");
+		else printf("Not readable, ");
+		if (file_perm & S_IWOTH) printf("Writable, ");
+		else printf("Not writable, ");
+		if (file_perm & S_IXOTH) printf("Executable\n");
+		else printf("Not executable\n");
+	}
+
+	printf("%s", success_msg);
+	return 1;
+}
+
+void print_error(int error_index, int exit_code, int exit_flag)
+{
+	fprintf(stderr, "%s\n", error_msg[error_index]);
+	if (exit_flag) exit(exit_code);
+}
+
+2. Write a program in C that illustrates how to execute two commands concurrently with a command pipe.
+
+#include<stdio.h>
+#include<fcntl.h>
+
+int main(void) {
+  int pfd[2], p;
+  pipe(pfd);
+  p = fork();
+  if (p == 0) {
+    close(pfd[0]);
+    close(1);
+    dup(pfd[1]);
+    execlp("ls", "ls", "-l", (char * ) 0);
+  } else {
+    close(pfd[1]);
+    close(0);
+    dup(pfd[0]);
+    execlp("wc", "wc", (char * ) 0);
+  }
+}
+
+3. Write a C Program that makes a copy of a file using standard I/O and system calls
+
+#include <stdio.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+
+int main(int argc, char *argv[])
+{
+	int f1, f2;
+	char buff[50];
+	long int n;
+
+	if (((f1 = open(argv[1], O_RDONLY)) == -1 || ((f2 = open(argv[2], O_CREAT |
+			O_WRONLY | O_TRUNC, 0700)) == 1)))
+	{
+		perror("problem in file");
+		exit(1);
+	}
+
+	while ((n = read(f1, buff, 50)) > 0)
+
+		if (write(f2, buff, n) != n)
+		{
+			perror("problem in writing");
+			exit(3);
+		}
+
+	if (n == -1)
+	{
+		perror("problem in reading");
+		exit(2);
+	}
+
+	close(f2);
+	exit(0);
+}
+
+4. Implement in C the following Unix commands using system calls
+a)cat B)mv c)cp d)ln
+
+a) cat implementation
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#include <fcntl.h>
+
+main(int argc, char *argv[3])
+{
+	int fd, i;
+	char buf[2];
+	fd = open(argv[1], O_RDONLY, 0777);
+	if (fd == -argc)
+	{
+		printf("file open error");
+	}
+	else
+	{
+		while ((i = read(fd, buf, 1)) > 0)
+		{
+			printf("%c", buf[0]);
+		}
+
+		close(fd);
+	}
+}
+
+b) mv implementation
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#include <fcntl.h>
+
+main(int argc, char *argv[])
+{
+	int i, fd1, fd2;
+	char *file1, *file2, buf[2];
+	file1 = argv[1];
+	file2 = argv[2];
+	printf("file1=%s file2=%s", file1, file2);
+	fd1 = open(file1, O_RDONLY, 0777);
+	fd2 = creat(file2, 0777);
+	while (i = read(fd1, buf, 1) > 0)
+		write(fd2, buf, 1);
+	remove(file1);
+	close(fd1);
+	close(fd2);
+}
+
+c) cp implementation
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+void main(int argc, char *argv[])
+{
+	int i, fd1, fd2;
+	char *file1, *file2, buf[2];
+	file1 = argv[1];
+	file2 = argv[2];
+	printf("file1=%sfile2=%s", file1, file2);
+	fd1 = open(file1, O_RDONLY, 0777);
+	fd2 = creat(file2, 0777);
+	while (i = read(fd1, buf, 1) > 0)
+		write(fd2, buf, 1);
+	close(fd1);
+	close(fd2);
+}
+
+d) ln implementation
+
+#include <stdio.h>
+#include <unistd.h>
+#include <iostream>
+using namespace std;
+int main(int argc, char *argv[])
+{
+	if (argc != 3)
+	{
+		cerr << "usage:" << argv[0] << "<src_file><dest_file>\n";
+		return 0;
+	}
+
+	if (link(argv[1], argv[2]) == -1)
+	{
+		perror("link");
+		return 1;
+	}
+	return 0;
+}
+
+5. Write a C program to list for every file in a directory, its inode number and file name
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+main(int argc, char *argv[])
+{
+	char d[50];
+	if (argc == 2)
+	{
+		bzero(d, sizeof(d));
+		strcat(d, "ls ");
+		strcat(d, "-i ");
+		strcat(d, argv[1]);
+		system(d);
+	}
+	else
+		printf("\nInvalid No. of inputs");
+}
+
+6. Write a C Program that demonstrates redirection of standard output to a file .EX:ls>f1.
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+void main(int argc, char *argv[])
+{
+	char d[50];
+	if (argc == 2)
+	{
+		bzero(d, sizeof(d));
+		strcat(d, "ls");
+		strcat(d, ">");
+		strcat(d, argv[1]);
+		system(d);
+	}
+	else
+		printf("\nInvalid No. of inputs");
+}
+
+// ./redirect list 
+// ls
+// cat list 
+
+7. Write a C program to create a child process and allow the parent to display “parent” and the child to display “child” on the screen
+
+#include <stdio.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main(void)
+{
+	int pid;
+	int status;
+	printf("Printing based on pid:\n");
+	pid = fork();
+	if (pid == -1)
+	{
+		perror("badfork");
+		exit(1);
+	}
+
+	if (pid == 0)
+		printf("Child\n");
+	else
+	{
+		wait(&status);
+		printf("Parent\n");
+	}
+}
+
+8. Write a C program to create a Zombie process.
+
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+int main()
+{
+    // Fork returns process id
+    // in parent process
+    pid_t child_pid = fork();
+  
+    // Parent process 
+    if (child_pid > 0)
+        sleep(50);
+  
+    // Child process
+    else        
+        exit(0);
+  
+    return 0;
+}
+
+9. Write a C program that illustrates how an orphan is created
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main(void)
+{
+	int pid;
+	pid = fork();
+	if (pid == 0)
+	{
+		printf("I AM CHILD PROCESS, MY PROCESS ID IS: %d", getpid());
+		printf("\nTHE CHILDS'S PARENT PROCESS ID IS: %d\n", getppid());
+		sleep(10);
+		printf("\n**************AFTER 10 SECONDS**********");
+		printf("\nI AM CHILD PROCESS, MY PROCESS ID IS: %d", getpid());
+		printf("\nTHE CHILDS' PARENT PROCESS ID IS: %d\n", getppid());
+	}
+	else
+	{
+		printf("\nI AM PARENT PROCESS, MY PROCESS ID IS: %d", getpid());
+		printf("\nTHE PARENT'S PARENT PROCESS ID IS: %d\n", getppid());
+	}
+}
+
+10. Write a C programs that illustrate communication between two unrelated processes using named pipe.
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <unistd.h>
+
+int main(void)
+{
+	int pfds[2];
+	char buf[30];
+	if (pipe(pfds) == -1)
+	{
+		perror("pipe");
+		exit(1);
+	}
+
+	printf("writing to file descriptor #%d\n", pfds[1]);
+	write(pfds[1], "test", 5);
+	printf("reading from file descriptor #%d\n ", pfds[0]);
+	read(pfds[0], buf, 5);
+	printf("read\"%s\"\n", buf);
+}
+
+11. Write a C program that illustrates suspending and resuming processes using signals
+
+#include <stdio.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+void alarms(int signo)
+{
+	printf("alarm function.signo=%d\n,", signo);
+}
+
+int main()
+{
+	if (signal(SIGALRM, alarms) == SIG_ERR)
+		printf("Signalerror");
+	alarm(5);
+	for (int i = 0; i<10; i++)
+		printf("i=%d\n", i);
+	printf("mainprogramterminated\n");
+	return 0;
+}
+
+12. Write a separate program using signal system call to catch the following signals.
+o SIGSEGV
+o SIGINT
+o SIGFPE
+o SIGALRM (use alarm system call)
+o SIGTERM
+o SIGKILL
+
+#include <iostream>
+#include <signal.h>
+using namespace std;
+int main(void)
+{
+		sigset_t sigset;
+		sigemptyset(&sigset);
+		sigaddset(&sigset, SIGINT);
+		sigaddset(&sigset, SIGUSR1);
+		sigaddset(&sigset, SIGQUIT);
+		sigaddset(&sigset, SIGALRM);
+		sigaddset(&sigset, SIGFPE);
+		sigaddset(&sigset, SIGSEGV);
+		if (sigprocmask(SIG_SETMASK, &sigset, 0) == -1)
+			perror("sigprocmask");
+		/*initializeset*/
+		if (sigprocmask(0, NULL, &sigset) < 0)
+			perror("sigprocmaskerror");
+		if (sigismember(&sigset, SIGINT)) cout << "SIGINT" << endl;
+		if (sigismember(&sigset, SIGFPE)) cout << "SIGFPE" << endl;
+		if (sigismember(&sigset, SIGQUIT)) cout << "SIGQUIT" << endl;
+		if (sigismember(&sigset, SIGUSR1)) cout << "SIGUSR1" << endl;
+		if (sigismember(&sigset, SIGUSR1)) cout << "SIGUSR1" << endl;
+		if (sigismember(&sigset, SIGALRM)) cout << "SIGALRM" << endl;
+		if (sigismember(&sigset, SIGSEGV)) cout << "SIGSEGV" << endl;
+}
+
+
+
